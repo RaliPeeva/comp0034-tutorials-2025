@@ -295,16 +295,17 @@ class AuthService:
         session_user = session.exec(statement).first()
         return session_user
 
-    def authenticate(self, session: SessionDep, email: str, password: str) -> User | None:
+    def authenticate(self, *, session: SessionDep, email: str, password: str) -> User | None:
         db_user = self.get_user_by_email(session=session, email=email)
         if not db_user:
             # Prevent timing attacks by running password verification even when user doesn't exist
             # This ensures the response time is similar whether or not the email exists
             verify_password(password, self.dummy_hash)
             return None
-        verified = verify_password(password, db_user.hashed_password)
-        if not verified:
-            return None
+        # verify_password returns: (is_valid: bool, updated_hash: str | None)
+        is_valid, updated_hash = verify_password(password, db_user.hashed_password)
+        if not is_valid:
+                return None
         return db_user
 ```
 
@@ -525,7 +526,7 @@ def login(email, password):
 def signup(email, password):
     data = {"email": email, "password": password}
     resp = requests.post(f"{API_BASE}/signup", json=data)
-    if resp.status_code == 200:
+    if resp.status_code == 201:
         return "Account created. You can now log in."
     return f"Account could not be created. {resp.json()['detail']}"
 ```
